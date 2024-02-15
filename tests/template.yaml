@@ -1,0 +1,32 @@
+# Spelling of the word | field required
+- spelling: # jo
+# Lexical category of the word
+# Categories: Pronoun | Verb | Noun | Article | Pronoun | Preposition | Adverb | Conjunction | Participle
+# Field required
+  category: # Pronoun
+# In case the word has a spelling that is inconsistent, provide the pronunciation
+# Field is nullable
+  phonology: # null
+# This field provides the meanings of the word
+# More then one meaning can be given in the form if a list
+# Field required
+  definition:
+    # - First person singular pronoun in the nominative case
+# Some additional comments may be given here | Field is nullable
+  usage: # null
+# The etymology required source (ex Latin, English, etc) and description
+# Field required
+  etymology:
+    source: # Latin
+    description: # From Latin ego
+# Field is nullable
+  synonyms: # null
+# Provides other derived forms of interest | Field is nullable
+  derivatives: # null
+# If the word is declinable or conjugable then provide the forms here
+# Field is nullable
+  forms:
+    # - jo
+    # - me
+    # - mi
+    # - mio

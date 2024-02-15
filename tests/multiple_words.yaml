@@ -1,0 +1,33 @@
+- spelling: tu
+  category: Pronoun
+  phonology: null
+  definition:
+    - Second person singular pronoun in the nominative case
+  usage: null
+  etymology:
+    source: Latin
+    description: From Latin tu
+  synonyms: null
+  derivatives: null
+  forms:
+    - tu
+    - te
+    - ti
+    - tuo
+
+- spelling: jo
+  category: Pronoun
+  phonology: null
+  definition:
+    - First person singular pronoun in the nominative case
+  usage: null
+  etymology:
+    source: Latin
+    description: From Latin ego
+  synonyms: null
+  derivatives: null
+  forms:
+    - jo
+    - me
+    - mi
+    - mio
