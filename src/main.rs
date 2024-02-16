@@ -1,4 +1,4 @@
-use rusqlite::{Connection, Result};
+use rusqlite::{Connection, Rows};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -22,42 +22,50 @@ struct Word {
 
 impl fmt::Display for Word {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}\n", self.spelling)?;
+        // SPELLING
+        write!(f, "{} :: ", self.spelling)?;
 
-        write!(f, "{}\n\n", self.category)?;
-
+        // CATEGORY
+        write!(f, "{}\n", self.category)?;
         for (i, def) in self.definition.iter().enumerate() {
             write!(f, "{}. {}\n", i, def)?;
         }
 
+        // PHONOLOGY
         if let Some(phonology) = &self.phonology {
-            write!(f, "\n{}\n", phonology)?;
+            write!(f, "\nPronunciation :: {}\n", phonology)?;
         }
-
+        // ETYMOLOGY
         write!(f, "\n{}\n", self.etymology)?;
 
+        // USAGE
         if let Some(usage) = &self.usage {
             write!(f, "Usage\n{}\n", usage)?;
         }
 
+        // SYNONYMS
         if let Some(synonyms) = &self.synonyms {
+            write!(f, "Synonyms\n")?;
             for (i, synonym) in synonyms.iter().enumerate() {
                 write!(f, "{}. {}\n", i, synonym)?;
             }
         }
 
+        // DERIVATIVES
         if let Some(derivatives) = &self.derivatives {
+            write!(f, "Derivatives\n")?;
             for (i, derivative) in derivatives.iter().enumerate() {
                 write!(f, "{}. {}\n", i, derivative)?;
             }
         }
 
+        // FORMS
         if let Some(forms) = &self.forms {
             write!(f, "\nForms: ")?;
             for form in forms.iter() {
-                write!(f, "| {}", form)?;
+                write!(f, "| {} ", form)?;
             }
-            writeln!(f, " |")?;
+            writeln!(f, "|")?;
         }
 
         Ok(())
@@ -145,6 +153,8 @@ impl fmt::Display for Etymology {
     }
 }
 
+//////////////////////////////////////////////////////////////////
+
 // Check if word follows the phonological rules
 #[allow(warnings)]
 fn is_word(word: Word) -> bool {
@@ -161,20 +171,16 @@ fn read_word(dir_path: &Path) -> io::Result<String> {
     todo!()
 }
 
-// TODO: Implement CLI
-
 #[cfg(test)]
 mod tests {
 
     use crate::{Category, Etymology, Word};
 
+    use rusqlite::{Connection, Result};
     #[allow(warnings)]
     use std::fs::File;
     use std::io::Read;
     use std::path::Path;
-
-    // TODO: Create a Connection to the sqlite database
-    // TODO: Write to the sqlite database
 
     #[test]
     fn test1() {
@@ -259,6 +265,71 @@ mod tests {
         assert_eq!(2, words.len());
 
         Ok(())
+    }
+
+    // TODO: How to make something happen for the first time when running an app
+
+    #[test]
+    /// Initializing the sqlite3 database
+    fn test_db() -> Result<()> {
+        let db = Path::new("./tests/example.db");
+        let conn = Connection::open(&db)?;
+
+        conn.execute(
+            "
+             CREATE TABLE IF NOT EXISTS category (
+                categories TEXT PRIMARY KEY
+             )
+             ",
+            (),
+        )?;
+
+        conn.execute("PRAGMA foreign_keys = ON;", ())?;
+
+        conn.execute(
+            "
+             INSERT OR IGNORE INTO category (categories) VALUES
+             ('verb'),
+             ('noun'),
+             ('article'),
+             ('pronoun'),
+             ('preposition'),
+             ('adverb'),
+             ('conjunction'),
+             ('participle')
+             ",
+            (),
+        )?;
+
+        conn.execute(
+            "
+             CREATE TABLE IF NOT EXISTS word (
+                id INTEGER PRIMARY KEY,
+                spelling TEXT NOT NULL,
+                categories TEXT NOT NULL,
+                definitions TEXT NOT NULL,
+                etymology TEXT NOT NULL,
+                phonology TEXT,
+                synonyms TEXT,
+                usage TEXT,
+                derivatives TEXT,
+                forms TEXT,
+                FOREIGN KEY (categories) REFERENCES category(categories)
+             )
+                 ",
+            (),
+        )?;
+
+        match conn.close() {
+            Ok(()) => {
+                println!("Connection to sqlite closed successfully")
+            }
+            Err(err) => {
+                println!("{:?}", err);
+            }
+        }
+
+        Result::Ok(())
     }
 }
 
@@ -475,26 +546,86 @@ fn cli_word_gen() -> Word {
     }
 }
 
-// TODO: Fix the print of the word struct
-//       - [ ] Ordering
-//       - [ ] spacing
-// TODO: Add spacing when the cli prints new prompts
-
-fn main() -> Result<()> {
+fn word_to_db(word: &Word) -> Result<(), Box<dyn std::error::Error>> {
     let db = Path::new("./tests/example.db");
     let conn = Connection::open(&db)?;
 
     conn.execute(
         "
-    CREATE TABLE IF NOT EXISTS word (
-       id INTEGER PRIMARY KEY
+    INSERT INTO word (
+        spelling,
+        categories,
+        definitions,
+        etymology,
+        phonology,
+        synonyms,
+        usage,
+        derivatives,
+        forms
     )
-        ",
-        (),
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ",
+        &[
+            &word.spelling as &dyn rusqlite::types::ToSql,
+            &word.category.to_string() as &dyn rusqlite::types::ToSql,
+            &serde_yaml::to_string(&word.definition)? as &dyn rusqlite::types::ToSql,
+            &serde_yaml::to_string(&word.etymology)? as &dyn rusqlite::types::ToSql,
+            &word.phonology as &dyn rusqlite::types::ToSql,
+            &word
+                .synonyms
+                .as_ref()
+                .map(|syns| serde_yaml::to_string(syns))
+                .transpose()? as &dyn rusqlite::types::ToSql,
+            &word.usage as &dyn rusqlite::types::ToSql,
+            &word
+                .derivatives
+                .as_ref()
+                .map(|derivs| serde_yaml::to_string(derivs))
+                .transpose()? as &dyn rusqlite::types::ToSql,
+            &word
+                .forms
+                .as_ref()
+                .map(|forms| serde_yaml::to_string(forms))
+                .transpose()? as &dyn rusqlite::types::ToSql,
+        ],
     )?;
+
+    match conn.close() {
+        Ok(()) => {
+            println!("Connection to sqlite closed successfully")
+        }
+        Err(err) => {
+            println!("{:?}", err);
+        }
+    }
+    Result::Ok(())
+}
+
+#[allow(warnings)]
+fn sql_to_word(mut rows: Rows) -> Result<(), Box<dyn std::error::Error>> {
+    todo!()
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let db = Path::new("./tests/example.db");
+    let conn = Connection::open(&db)?;
 
     let new_word = cli_word_gen();
     println!("{}", new_word);
 
+    word_to_db(&new_word)?;
+
+    match conn.close() {
+        Ok(()) => {
+            println!("Connection to sqlite closed successfully")
+        }
+        Err(err) => {
+            println!("{:?}", err);
+        }
+    }
+
     Result::Ok(())
 }
+
+// TODO: Write better tests
+// TODO: Separate the test module
