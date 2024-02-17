@@ -74,6 +74,7 @@ impl fmt::Display for Word {
     }
 }
 
+#[derive(Debug)]
 enum InputErr {
     Empty,
     Invalid,
@@ -443,29 +444,71 @@ fn word_to_db(word: &Word) -> Result<(), Box<dyn std::error::Error>> {
 
 #[allow(warnings)]
 /// Take a sql row as iterator and create a word struc
-fn sql_to_word(mut rows: Rows) -> Result<Word, Box<dyn std::error::Error>> {
-    // CREATE TABLE IF NOT EXISTS word (
-    //    id INTEGER PRIMARY KEY,
-    //    spelling TEXT NOT NULL,
-    //    categories TEXT NOT NULL,
-    //    definitions TEXT NOT NULL,
-    //    etymology TEXT NOT NULL,
-    //    phonology TEXT,
-    //    synonyms TEXT,
-    //    usage TEXT,
-    //    derivatives TEXT,
-    //    forms TEXT,
-    //    FOREIGN KEY (categories) REFERENCES category(categories)
+fn sql_to_word(word: String) -> Result<Vec<Word>, Box<dyn std::error::Error>> {
+    let db = Path::new("./tests/example.db");
+    let conn = Connection::open(&db)?;
 
-    ////
+    let mut stmt = conn.prepare("SELECT * FROM word WHERE categories = \"verb\"")?;
 
-    // if let Some(row) = rows.next() {
-    //     let row = row?;
-    //     let spelling = row.get(1);
-    //     let category = row.get(2);
-    //
-    //     todo!()
-    // }
+    let mut spelling_str = String::new();
+    let mut categories_str = String::new();
+    let mut definitions_str = String::new();
+    let mut etymology_str = String::new();
+    let mut phonology_str = Some(String::new());
+    let mut usage_str = Some(String::new());
+    let mut synonyms_str = String::new();
+    let mut derivatives_str = String::new();
+    let mut forms_str = String::new();
+
+    // If you have more then one word it will just mutate that many times and create one word
+    // TODO: Fix this maybe?
+    let old_word = match stmt.query_map([], |row| {
+        spelling_str = row.get::<usize, String>(1)?;
+        categories_str = row.get::<usize, String>(2)?;
+        definitions_str = row.get::<usize, String>(3)?;
+        etymology_str = row.get::<usize, String>(4)?;
+        usage_str = row.get::<usize, Option<String>>(7)?;
+        phonology_str = row.get::<usize, Option<String>>(5)?;
+        synonyms_str = row.get::<usize, String>(6)?;
+        derivatives_str = row.get::<usize, String>(8)?;
+        forms_str = row.get::<usize, String>(9)?;
+
+        Ok(())
+    }) {
+        Err(err_query) => return Err(Box::new(err_query)),
+
+        Ok(a) => {
+            // Must use the a value since it's lazy
+            dbg!(a.count());
+            Word {
+                spelling: spelling_str,
+                category: Category::from_str(categories_str.as_str()).unwrap(),
+                etymology: serde_yaml::from_str::<Etymology>(&etymology_str)?,
+                definition: serde_yaml::from_str::<Vec<String>>(&definitions_str)?,
+                phonology: phonology_str,
+                synonyms: serde_yaml::from_str::<Option<Vec<String>>>(&synonyms_str)
+                    .unwrap_or_default(),
+                usage: usage_str,
+                derivatives: serde_yaml::from_str::<Option<Vec<String>>>(&derivatives_str)
+                    .unwrap_or_default(),
+                forms: serde_yaml::from_str::<Option<Vec<String>>>(&forms_str).unwrap_or_default(),
+            }
+
+            // dbg!(spelling_str);
+            // dbg!(categories_str);
+            // dbg!(serde_yaml::from_str::<Etymology>(&etymology_str)?);
+            // dbg!(serde_yaml::from_str::<Vec<String>>(&definitions_str)?);
+            // dbg!(&phonology_str);
+            // dbg!(serde_yaml::from_str::<Option<Vec<String>>>(&synonyms_str).unwrap_or_default());
+            // dbg!(&usage_str);
+            // dbg!(serde_yaml::from_str::<Option<Vec<String>>>(&derivatives_str).unwrap_or_default());
+            // dbg!(serde_yaml::from_str::<Option<Vec<String>>>(&forms_str).unwrap_or_default());
+        }
+    };
+
+    dbg!(old_word);
+
+    drop(stmt);
     todo!()
 }
 
@@ -477,6 +520,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", new_word);
 
     word_to_db(&new_word)?;
+    let _ = sql_to_word("Here".to_string());
 
     match conn.close() {
         Ok(()) => {
