@@ -506,4 +506,5 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 // TODO: Write better tests
-// TODO: Separate the test module
+// TODO: Create visualization
+// TODO: Create search feature

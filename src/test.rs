@@ -32,7 +32,7 @@ mod test {
     }
 
     #[test]
-    fn test2() -> Result<(), Box<dyn std::error::Error>> {
+    fn serialize_word() -> Result<(), Box<dyn std::error::Error>> {
         let word_file = Path::new("./tests/jo.yaml");
         let mut file = File::open(word_file)?;
 
@@ -96,7 +96,7 @@ mod test {
 
     #[test]
     /// Initializing the sqlite3 database
-    fn test_db() -> Result<()> {
+    fn init_db() -> Result<()> {
         let db = Path::new("./tests/example.db");
         let conn = Connection::open(&db)?;
 
@@ -156,4 +156,12 @@ mod test {
 
         Result::Ok(())
     }
+
+    #[test]
+    fn sql_schema_to_rust_vec_struct() {
+        todo!()
+    }
 }
+
+// TODO: Fix some of the tests
+// TODO: Add more tests
